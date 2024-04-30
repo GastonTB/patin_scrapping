@@ -1,14 +1,14 @@
+import time
 from bs4 import BeautifulSoup
-import json
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-import time
+from concurrent.futures import ThreadPoolExecutor
 
 # Función para hacer scroll hasta el final de la página
 def scroll_to_bottom(driver):
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(2)  # Ajusta este retraso según sea necesario
+    time.sleep(1)  # Ajusta este retraso según sea necesario
 
 # Función para obtener datos de la primera tienda (BlackDog)
 def get_blackdog_data():
@@ -16,9 +16,20 @@ def get_blackdog_data():
     url_blackdog = "https://www.blackdog.cl"
     driver_path = r'E:\chromedriver_win32\chromedriver-win64\chromedriver.exe'
 
+    # Configurar opciones para el navegador Chrome
+    chrome_options = webdriver.ChromeOptions()
+    #headless
+    chrome_options.add_argument("--headless")
+    #other options
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--allow-insecure-localhost")
+    chrome_options.add_argument("--window-size=1920,1200")
+    # Configurar el nivel de registro para ocultar mensajes de JavaScript
+    chrome_options.add_argument("--log-level=3")
     # Crea una nueva instancia del controlador de Chrome para la primera tienda
     service = Service(driver_path)
-    driver = webdriver.Chrome(service=service)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     driver.maximize_window()
 
     # Navega a la URL de la primera tienda
@@ -82,20 +93,20 @@ def get_blackdog_data():
     # Retorna los datos obtenidos de BlackDog
     return patines_agresivos_data
 
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from bs4 import BeautifulSoup
-import time
-
+# Función para obtener datos de la segunda tienda (OpenBox)
 def get_openboxstore_data():
     # URL de la segunda tienda
     url_openboxstore = "https://www.openboxstore.cl/patines/agresivos"
     driver_path = r'E:\chromedriver_win32\chromedriver-win64\chromedriver.exe'
 
-    # Crea una nueva instancia del controlador de Chrome para la segunda tienda
+    # Configurar opciones para el navegador Chrome
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument("--headless")  # Ejecutar en modo headless
+    chrome_options.add_argument("log-level=3")  # Configurar el nivel de registro
+
+    # Crea una nueva instancia del controlador de Chrome para la primera tienda
     service = Service(driver_path)
-    driver = webdriver.Chrome(service=service)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     driver.maximize_window()
 
     # Navega a la URL de la segunda tienda
@@ -133,6 +144,7 @@ def get_openboxstore_data():
             image = soup.find("img")["src"]
             brand = soup.find("small", class_="brand").text.strip() if soup.find("small", class_="brand") else ""
             category = "Agresivo"  # No hay información sobre la categoría específica, la dejamos como "Agresivo"
+            brand = brand if brand else name.split()[0]
 
             # Almacena los datos en un diccionario
             product_data = {
@@ -142,7 +154,8 @@ def get_openboxstore_data():
                 "link": link,
                 "image": image,
                 "categories": [category],
-                "brands": [brand] if brand else []  # Si no hay marca, dejar la lista vacía
+                "brands": [brand] 
+                
             }
 
             # Agrega los datos del producto a la lista
@@ -158,7 +171,7 @@ def get_openboxstore_data():
 
         # Si hay una página siguiente, haz clic en el segundo botón para cargarla
         next_buttons[1].click()
-        time.sleep(5)  # Espera un poco para que los nuevos productos carguen completamente
+        # time.sleep(1)  # Espera un poco para que los nuevos productos carguen completamente
 
     # Cierra el navegador
     driver.quit()
@@ -166,32 +179,117 @@ def get_openboxstore_data():
     # Retorna los datos obtenidos de OpenBoxStore
     return openboxstore_data
 
+# Función para obtener datos de la tercera tienda (Unity)
+def get_unity_data():
+    # URL de la tercera tienda
+    url_unity = 'https://www.unity-skateshop.cl/index.php/categoria-producto/patines/agresivos/?products-per-page=all'
+    driver_path = r'E:\chromedriver_win32\chromedriver-win64\chromedriver.exe'
+    
+    # Configurar opciones para el navegador Chrome
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument("--headless")  # Ejecutar en modo headless
+    chrome_options.add_argument("log-level=3")  # Configurar el nivel de registro
+
+    # Crea una nueva instancia del controlador de Chrome para la primera tienda
+    service = Service(driver_path)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver.maximize_window()
+
+    # Navega a la URL de la tercera tienda
+    driver.get(url_unity)
+
+    # Espera un momento para que se carguen completamente los elementos en la página
+    time.sleep(2)
+
+    # Lista para almacenar los datos de la tercera tienda
+    unity_data = []
+
+    # Encontrar todos los elementos de productos en la página
+    products = driver.find_elements(By.CLASS_NAME, 'product-inner')
+
+    # Iterar sobre los elementos de productos y extraer la información relevante
+    for product in products:
+        # Extraer el nombre del producto
+        name = product.find_element(By.CLASS_NAME, 'title').text.strip()
+
+        # Extraer el precio del producto utilizando XPath
+        price_elements = product.find_elements(By.XPATH, '//span/span/bdi')
+        price = price_elements[1].text.strip() if price_elements else None
+
+        # Extraer el enlace del producto
+        link = product.find_element(By.TAG_NAME, 'a').get_attribute('href')
+
+        # Extraer la imagen del producto
+        image = product.find_element(By.TAG_NAME, 'img').get_attribute('src')
+
+        # Extraer las categorías del producto
+        categories_element = product.find_element(By.CLASS_NAME, 'category')
+        categories = [a.text.strip() for a in categories_element.find_elements(By.TAG_NAME, 'a')]
+
+        # Dejar el campo de la marca vacío
+        brand = ""
+
+        # Crear el diccionario de datos del producto
+        product_data = {
+            "name": name,
+            "price": price,
+            "link": link,
+            "image": image,
+            "categories": categories,
+            "brand": brand
+        }
+
+        # Agregar el diccionario de datos del producto a la lista
+        unity_data.append(product_data)
+
+    # Cerrar el navegador
+    driver.quit()
+
+    # Retornar los datos obtenidos de Unity Skate Shop
+    return unity_data
+
+
+    
+
+
+
 # Función para asignar ID único a cada elemento en el archivo JSON
 def assign_ids_to_items(data):
     for i, item in enumerate(data, start=1):
         item["id"] = i
     return data
 
-# Llama a la función para obtener los datos de BlackDog
-blackdog_data = get_blackdog_data()
 
-# Convertir los datos a JSON y escribirlos en un archivo
-with open("patines_agresivos_data.json", "w") as file:
-    json.dump(blackdog_data, file, indent=4)
 
-# Llama a la función para obtener los datos de OpenBoxStore
-openboxstore_data = get_openboxstore_data()
+# # Mide el tiempo de ejecución
+# start_time = time.time()
 
-# Lee los datos existentes del archivo JSON
-with open("patines_agresivos_data.json", "r") as file:
-    existing_data = json.load(file)
+# # Ejecutar las funciones en paralelo usando ThreadPoolExecutor
+# with ThreadPoolExecutor(max_workers=2) as executor:
+#     blackdog_future = executor.submit(get_blackdog_data)
+#     openboxstore_future = executor.submit(get_openboxstore_data)
 
-# Agrega los datos de OpenBoxStore a los datos existentes
-existing_data.extend(openboxstore_data)
+#     # Obtener los resultados de las funciones
+#     blackdog_data = blackdog_future.result()
+#     openboxstore_data = openboxstore_future.result()
 
-# Asigna ID único a cada elemento en el archivo JSON
-existing_data_with_ids = assign_ids_to_items(existing_data)
+# # Lee los datos existentes del archivo JSON
+# with open("patines_agresivos_data.json", "r") as file:
+#     existing_data = json.load(file)
 
-# Sobrescribe el archivo JSON con los datos combinados que ahora tienen IDs únicos
-with open("patines_agresivos_data.json", "w") as file:
-    json.dump(existing_data_with_ids, file, indent=4)
+# # Agrega los datos de OpenBoxStore a los datos existentes
+# existing_data.extend(openboxstore_data)
+
+# # Asigna ID único a cada elemento en el archivo JSON
+# existing_data_with_ids = assign_ids_to_items(existing_data)
+
+# # Sobrescribe el archivo JSON con los datos combinados que ahora tienen IDs únicos
+# with open("patines_agresivos_data.json", "w") as file:
+#     json.dump(existing_data_with_ids, file, indent=4)
+
+# # Calcula el tiempo de ejecución
+# end_time = time.time()
+# execution_time = end_time - start_time
+
+# # Imprime el tiempo total de ejecución
+# print("Tiempo de ejecución:", execution_time, "segundos")
