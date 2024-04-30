@@ -45,6 +45,8 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
             # Establece las cabeceras de la respuesta
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")  # Permitir acceso desde cualquier origen
+            self.send_header("Access-Control-Allow-Methods", "GET")  # Permitir método GET
             self.end_headers()
 
             # Escribir el JSON en el cuerpo de la respuesta
