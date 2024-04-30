@@ -4,7 +4,7 @@ import time
 from urllib.parse import urlparse
 from http import HTTPStatus
 from concurrent.futures import ThreadPoolExecutor
-from scraper import get_blackdog_data, get_openboxstore_data, get_unity_data, assign_ids_to_items
+from scraper import get_blackdog_data, get_openboxstore_data, get_unity_data, get_pedacity_data
 
 class MyHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
@@ -21,13 +21,16 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
                 future_blackdog = executor.submit(get_blackdog_data)
                 future_openboxstore = executor.submit(get_openboxstore_data)
                 future_unity = executor.submit(get_unity_data)
+                future_pedalcity = executor.submit(get_pedacity_data)
+
                 # Espera a que ambas funciones terminen y obtiene los resultados
                 blackdog_data = future_blackdog.result()
                 openboxstore_data = future_openboxstore.result()
                 unity_data = future_unity.result()
+                pedalcity_data = future_pedalcity.result()
 
             # Combina los datos
-            combined_data = blackdog_data + openboxstore_data + unity_data
+            combined_data = blackdog_data + openboxstore_data + unity_data + pedalcity_data
 
             # Asigna ID único a cada elemento en el archivo JSON
             # combined_data_with_ids = assign_ids_to_items(combined_data)

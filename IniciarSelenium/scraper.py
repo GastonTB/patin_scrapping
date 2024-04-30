@@ -4,6 +4,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from concurrent.futures import ThreadPoolExecutor
+import requests
 
 # Función para hacer scroll hasta el final de la página
 def scroll_to_bottom(driver):
@@ -143,7 +144,7 @@ def get_openboxstore_data():
             link = "https://www.openboxstore.cl" + soup.find("a")["href"]
             image = soup.find("img")["src"]
             brand = soup.find("small", class_="brand").text.strip() if soup.find("small", class_="brand") else ""
-            category = "Agresivo"  # No hay información sobre la categoría específica, la dejamos como "Agresivo"
+            category = "Agresivos"  # No hay información sobre la categoría específica, la dejamos como "Agresivo"
             brand = brand if brand else name.split()[0]
 
             # Almacena los datos en un diccionario
@@ -232,11 +233,12 @@ def get_unity_data():
         # Crear el diccionario de datos del producto
         product_data = {
             "name": name,
-            "price": price,
+            "regular_price": price,
+            "offer_price": "",
             "link": link,
             "image": image,
             "categories": categories,
-            "brand": brand
+            "brands": brand
         }
 
         # Agregar el diccionario de datos del producto a la lista
@@ -250,6 +252,84 @@ def get_unity_data():
 
 
     
+# Función para obtener datos de la cuarta tienda (PedaCity)
+def get_pedacity_data():
+    url_pedalcity = 'https://www.pedalcity.cl/collections/patines?sort_by=manual&filter.v.price.gte=&filter.v.price.lte=&filter.p.m.my_fields.tipo=Agresivo'
+    driver_path = r'E:\chromedriver_win32\chromedriver-win64\chromedriver.exe'
+
+    # Configurar opciones para el navegador Chrome
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument("--headless")  # Ejecutar en modo headless
+    chrome_options.add_argument("log-level=3")  # Configurar el nivel de registro
+
+    # Crear una nueva instancia del controlador de Chrome
+    service = Service(driver_path)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver.maximize_window()
+
+    # Navegar a la URL de PedalCity
+    driver.get(url_pedalcity)
+
+    # Esperar un momento para que se carguen completamente los elementos en la página
+    time.sleep(1)
+
+    # Encontrar todos los elementos de producto en la página
+    products = driver.find_elements(By.CLASS_NAME, 'product-item--vertical')
+
+    # Inicializar la lista de datos de PedalCity
+    pedalcity_data = []
+
+    # Iterar sobre los elementos de producto y extraer los datos
+    for product in products:
+        brand_element = product.find_element(By.CLASS_NAME, 'product-item__vendor')
+        brand = brand_element.text.strip()
+
+        title_element = product.find_element(By.CLASS_NAME, 'product-item__title')
+        title = title_element.text.strip()
+
+        price_element = product.find_element(By.XPATH, './/div[@class="product-item__price-list price-list"]')
+
+        price_spans = price_element.find_elements(By.TAG_NAME, 'span')
+
+
+        if len(price_spans) > 3:
+            price = price_spans[0].text.strip()
+            price = price.split('$')
+            price = '$'+price[1]
+            regular_price = price_spans[2].text.strip()
+            regular_price = regular_price.split('$')
+            regular_price = '$' + regular_price[1]
+        else:
+            price = ""
+            regular_price = price_spans[0].text.strip()
+            regular_price = regular_price.split('$')
+            regular_price = '$'+regular_price[1]
+
+
+        link_element = product.find_element(By.XPATH, './/a[@class="product-item__image-wrapper product-item__image-wrapper--with-secondary"]')
+        product_link = link_element.get_attribute('href')
+        img_tag = product.find_element(By.CLASS_NAME, 'product-item__primary-image')
+        srcset_attribute = img_tag.get_attribute('data-srcset')
+        pairs = srcset_attribute.split(', ')
+        last_pair = pairs[-1]
+        image_url = last_pair.split(' ')[0]
+
+        # Agregar los datos del producto a la lista
+        product_data = {
+            "brands": brand,
+            "name": title,
+            "offer_price": price,
+            "regular_price": regular_price,
+            "categories": "Agresivos",
+            "image": image_url,
+            "link": product_link
+        }
+        pedalcity_data.append(product_data)
+
+    # Cerrar el navegador después de obtener los datos
+    driver.quit()
+    
+    return pedalcity_data
 
 
 
